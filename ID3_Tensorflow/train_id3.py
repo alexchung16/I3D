@@ -177,13 +177,16 @@ if __name__ == "__main__":
 
                 # save model
                 # get op name for save model
-                input_op = alex_net.raw_input_data.name
-                logit_op = alex_net.logits.name
+                rgb_input_op = i3d.rgb_input_data
+                flow_input_op = i3d.flow_input_data
+
+                logit_op = i3d.model_logits.op.name
                 # convert variable to constant
                 input_graph_def = tf.get_default_graph().as_graph_def()
                 constant_graph = tf.graph_util.convert_variables_to_constants(sess, input_graph_def,
-                                                                              [input_op.split(':')[0],
-                                                                               logit_op.split(':')[0]])
+                                                                              output_node_names=[rgb_input_op.op.name,
+                                                                                                 flow_input_op.op.name,
+                                                                                                 logit_op.op.name])
                 # save to serialize file
                 with tf.gfile.FastGFile(name=model_name, mode='wb') as f:
                     f.write(constant_graph.SerializeToString())
