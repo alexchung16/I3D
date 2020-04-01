@@ -49,9 +49,11 @@ class I3D():
         # # is_training flag
         self.global_step = tf.train.get_or_create_global_step()
         self.rgb_logits, self.flow_logits = self.inference()
-        # if self.is_training:
-        #     self.loss = self.losses()
-        #     self.train = self.training(self.loss, self.global_step)
+        self.model_logits = self.rgb_logits + self.flow_logits
+        if self.is_training:
+            self.rgb_loss, self.flow_loss = self.losses()
+            self.train = self.training()
+            self.accuracy = self.accuracy
 
 
     def inference(self):
@@ -86,28 +88,66 @@ class I3D():
         return rgb_logits, flow_logits
 
 
-    def losses(self, loss_Epsilon=7e-7):
+    def losses(self, loss_epsilon=7e-7):
         """
         :return:
         """
-        # for variable in tf.global_variables():
-        #     tmp = variable.name.split('/')
-        #     if tmp[0] == _SCOPE[train_data.mode] and 'dense' not in tmp[1]:
-        #         variable_map[variable.name.replace(':0', '')] = variable
-        #     if tmp[-1] == 'w:0' or tmp[-1] == 'kernel:0':
-        #         weight_l2 = tf.nn.l2_loss(variable)
-        #         tf.add_to_collection('weight_l2', weight_l2)
-        # loss_weight = tf.add_n(tf.get_collection('weight_l2'), 'loss_weight')
-        # loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        #     labels=label_holder, logits=fc_out))
-        # total_loss = loss + _WEIGHT_OF_LOSS_WEIGHT * loss_weight
-        # tf.summary.scalar('loss', loss)
-        # tf.summary.scalar('loss_weight', loss_weight)
-        # tf.summary.scalar('total_loss', total_loss)
-        pass
+        rgb_loss_op = self.get_rgb_flow_loss('RGB', labels=self.input_label, logits=self.rgb_logits,
+                                             loss_epsilon=loss_epsilon)
+        flow_loss_op = self.get_rgb_flow_loss('Flow', labels=self.input_label, logits=self.flow_logits,
+                                              loss_epsilon=loss_epsilon)
+        return rgb_loss_op, flow_loss_op
 
-    def training(self, loss, global_step):
-        pass
+
+    def training(self):
+        """
+
+        :param loss:
+        :param global_step:
+        :return:
+        """
+
+        learning_rate = tf.train.piecewise_constant(self.global_step,
+                                                    boundaries=self.learning_rate_boundary,
+                                                    values= self.learning_rate_value)
+
+        rgb_variable = tf.global_variables(scope='RGB')
+        flow_variable = tf.global_variables(scope='Flow')
+
+        rgb_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+                                                  momentum=self.momentum_rate).minimize(self.rgb_loss_op,
+                                                                                        global_step=self.global_step,
+                                                                                        var_list=rgb_variable)
+        flow_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+                                                   momentum=self.momentum_rate).minimize(self.flow_loss_op,
+                                                                                         global_step=self.global_step,
+                                                                                         var_list=flow_variable)
+
+        return tf.group(rgb_train_op, flow_train_op)
+
+
+    def accuracy(self):
+
+
+        rgb_in_top_1 = tf.nn.in_top_k(predictions=self.rgb_logits, target=self.input_label, k=1)
+        flow_in_top_1 = tf.nn.in_top_k(predictions=self.flow_logits, targets=self.input_label, k=1)
+
+        model_in_top_1 = tf.nn.in_top_k(predictions=self.model_logits, targets=self.input_label, k=1)
+
+        # rgb_correct = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+        # accuracy mean
+        rgb_accuracy = tf.reduce_mean(tf.cast(rgb_in_top_1, tf.float32))
+        flow_accuracy = tf.reduce_mean(tf.cast(flow_in_top_1, tf.float32))
+        model_accuracy = tf.reduce_mean(tf.cast(model_in_top_1, tf.float32))
+
+        return rgb_accuracy, flow_accuracy, model_accuracy
+
+
+    def predict(self):
+
+        predict = tf.nn.softmax(self.model_logits)
+
+        return tf.argmax(predict)
 
 
     def image_rescale(self, image):
@@ -161,6 +201,33 @@ class I3D():
             except Exception as e:
                 print('Failed restore I3D {0} model from {1}, for\n \t{2}'.format(flag, model_path, e))
                 continue
+
+    def get_rgb_flow_loss(self, mode='RGB', labels=None, logits=None, loss_epsilon=7e-7):
+        """
+        get rgb or flow loss
+        :param mode:
+        :param labels:
+        :param logits:
+        :param loss_epsilon:
+        :return:
+        """
+        # add L2 regularization to weights
+        for variable in tf.global_variables(scope=mode):
+            var_split = variable.name.split('/')
+            if var_split[-1] == 'w:0' or var_split[-1] == 'kernel:0':
+                weight_l2 = tf.nn.l2_loss(variable)
+                tf.add_to_collection('weight_l2', weight_l2)
+        loss_weight = tf.add_n(tf.get_collection('weight_l2'), 'loss_weight')
+
+        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+            labels=labels, logits=logits))
+        total_loss = loss + loss_epsilon * loss_weight
+        tf.summary.scalar('{0} loss'.format(mode), loss)
+        tf.summary.scalar('{0} loss_weight'.format(mode), loss_weight)
+        tf.summary.scalar('{0} total_loss'.format(mode), total_loss)
+
+        return total_loss
+
 
     def restore_rgb_flow_mdoel(self, sess, model_flag, model_path, load_Logits=None):
         """
