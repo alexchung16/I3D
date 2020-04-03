@@ -21,39 +21,41 @@ class I3D():
 
     def __init__(self, num_classes, learning_rate=0.01, decay_step_first=10000, decay_step_second=20000,
                  decay_step_third=30000, decay_step_fourth=400000, learning_rate_first=0.0005,
-                 learning_rate_second=0.0003, learning_rate_third=0.0001, learning_rate_fourth=0.00001,
-                 momentum_rate=0.9, keep_prob=0.8, is_pretrain=True):
+                 learning_rate_second=0.0003, learning_rate_third=0.00002, learning_rate_fourth=0.00001,
+                 momentum_rate=0.9, keep_prob=0.8):
 
         self.num_classes = num_classes
 
-        self.rgb_input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, None, None, 3],
+        self.rgb_input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, 224, 224, 3],
                                                        name="rgb_video")
         # convert size scale to (-1, 1)
-        self.rgb_input_data = self.image_rescale(self.rgb_input_data)
+        # self.rgb_input_data = self.image_rescale(self.rgb_input_data)
 
-        self.flow_input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, None, None, 2],
+        self.flow_input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, 224, 224, 2],
                                                        name="flow_video")
-        self.input_label = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, None, num_classes],
+
+        self.input_label = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, num_classes],
                                                     name="label")
-        self.is_training = tf.compat.v1.placeholder_with_default(input=False, shape=(), name='is_training')
+        self.is_training = tf.compat.v1.placeholder(tf.bool, shape=(), name="is_training")
 
         self.learning_rate_value = [learning_rate, learning_rate_first, learning_rate_second, learning_rate_third,
                                     learning_rate_fourth]
         self.learning_rate_boundary = [decay_step_first, decay_step_second, decay_step_third, decay_step_fourth]
 
-        self.momentum_rate = momentum_rate,
+        self.momentum_rate = momentum_rate
 
         self.keep_prob = keep_prob
-        self.is_pretrain = is_pretrain
 
         # # is_training flag
         self.global_step = tf.train.get_or_create_global_step()
         self.rgb_logits, self.flow_logits = self.inference()
         self.model_logits = self.rgb_logits + self.flow_logits
-        if self.is_training:
-            self.rgb_loss, self.flow_loss = self.losses()
-            self.train = self.training()
-            self.accuracy = self.accuracy
+
+        self.raw_model_variables = self.get_model_variables()
+
+        self.rgb_loss, self.flow_loss = self.losses(self.rgb_logits, self.flow_logits, self.input_label)
+        self.train = self.training(self.rgb_loss, self.flow_loss)
+        self.accuracy = self.get_accuracy()
 
 
     def inference(self):
@@ -73,33 +75,53 @@ class I3D():
         construct i3d net
         :return:
         """
+
         with tf.variable_scope('RGB'):
-            rgb_model = InceptionI3d(num_classes=num_classes,
-                                     spatial_squeeze=True,
-                                     final_endpoint='Logits')
-            rgb_logits = rgb_model(rgb_input, is_training=is_training, keep_prob=keep_prob)
+            # insert i3d model
+            model = InceptionI3d(400, spatial_squeeze=True, final_endpoint='Logits')
+
+            rgb_logits = model(rgb_input, is_training=is_training, keep_prob=keep_prob)
+
+            rgb_logits = tf.nn.dropout(rgb_logits, keep_prob)
+            # To change 400 classes to custom classes
+            rgb_logits = tf.layers.dense(rgb_logits, num_classes, use_bias=True, name='Dense_Logits')
 
         with tf.variable_scope('Flow'):
-            flow_model = InceptionI3d(num_classes=num_classes,
-                                     spatial_squeeze=True,
-                                     final_endpoint='Logits')
-            flow_logits = flow_model(flow_input, is_training=is_training, keep_prob=keep_prob)
+            # insert i3d model
+            model = InceptionI3d(400, spatial_squeeze=True, final_endpoint='Logits')
+
+            flow_logits = model(flow_input, is_training=is_training, keep_prob=keep_prob)
+
+            flow_logits = tf.nn.dropout(flow_logits, keep_prob)
+            # To change 400 classes to custom classes
+            flow_logits = tf.layers.dense(flow_logits, num_classes, use_bias=True, name='Dense_Logits')
 
         return rgb_logits, flow_logits
 
 
-    def losses(self, loss_epsilon=7e-7):
+    def get_model_variables(self):
+        """
+        get model_variable
+        :return:
+        """
+
+        return tf.global_variables()
+
+
+
+    def losses(self, rgb_logits, flow_loggits, labels, weight_lambda=7e-7):
         """
         :return:
         """
-        rgb_loss_op = self.get_rgb_flow_loss('RGB', labels=self.input_label, logits=self.rgb_logits,
-                                             loss_epsilon=loss_epsilon)
-        flow_loss_op = self.get_rgb_flow_loss('Flow', labels=self.input_label, logits=self.flow_logits,
-                                              loss_epsilon=loss_epsilon)
+        rgb_loss_op = self.get_rgb_flow_loss('RGB', labels=labels, logits=rgb_logits,
+                                             weight_lambda=weight_lambda)
+        flow_loss_op = self.get_rgb_flow_loss('Flow', labels=labels, logits=flow_loggits,
+                                              weight_lambda=weight_lambda)
+
         return rgb_loss_op, flow_loss_op
 
 
-    def training(self):
+    def training(self, rgb_loss, flow_loss):
         """
 
         :param loss:
@@ -113,34 +135,38 @@ class I3D():
 
         rgb_variable = tf.global_variables(scope='RGB')
         flow_variable = tf.global_variables(scope='Flow')
+        #
+        rgb_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope='RGB')
+        with tf.control_dependencies(rgb_update_ops):
+            rgb_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+                                                      momentum=self.momentum_rate).minimize(rgb_loss,
+                                                                                            global_step=self.global_step,
+                                                                                            var_list=rgb_variable)
+        flow_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope='Flow')
+        with tf.control_dependencies(flow_update_ops):
+            flow_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+                                                       momentum=self.momentum_rate).minimize(flow_loss,
+                                                                                             global_step=self.global_step,
+                                                                                             var_list=flow_variable)
+        train_op = tf.group(rgb_train_op, flow_train_op)
 
-        rgb_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
-                                                  momentum=self.momentum_rate).minimize(self.rgb_loss_op,
-                                                                                        global_step=self.global_step,
-                                                                                        var_list=rgb_variable)
-        flow_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
-                                                   momentum=self.momentum_rate).minimize(self.flow_loss_op,
-                                                                                         global_step=self.global_step,
-                                                                                         var_list=flow_variable)
-
-        return tf.group(rgb_train_op, flow_train_op)
+        return train_op
 
 
-    def accuracy(self):
+    def get_accuracy(self):
+        """
 
-
-        rgb_in_top_1 = tf.nn.in_top_k(predictions=self.rgb_logits, target=self.input_label, k=1)
-        flow_in_top_1 = tf.nn.in_top_k(predictions=self.flow_logits, targets=self.input_label, k=1)
-
-        model_in_top_1 = tf.nn.in_top_k(predictions=self.model_logits, targets=self.input_label, k=1)
-
-        # rgb_correct = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+        :return:
+        """
+        rgb_acc = tf.equal(tf.argmax(self.rgb_logits, 1), tf.argmax(self.input_label, 1))
+        flow_acc = tf.equal(tf.argmax(self.flow_logits, 1), tf.argmax(self.input_label, 1))
+        model_acc = tf.equal(tf.argmax(self.model_logits, 1), tf.argmax(self.input_label, 1))
         # accuracy mean
-        rgb_accuracy = tf.reduce_mean(tf.cast(rgb_in_top_1, tf.float32))
-        flow_accuracy = tf.reduce_mean(tf.cast(flow_in_top_1, tf.float32))
-        model_accuracy = tf.reduce_mean(tf.cast(model_in_top_1, tf.float32))
+        # rgb_accuracy = tf.reduce_mean(tf.cast(rgb_acc, tf.float32))
+        # flow_accuracy = tf.reduce_mean(tf.cast(flow_acc, tf.float32))
+        # model_accuracy = tf.reduce_mean(tf.cast(model_acc, tf.float32))
 
-        return rgb_accuracy, flow_accuracy, model_accuracy
+        return rgb_acc, flow_acc, model_acc
 
 
     def predict(self):
@@ -181,6 +207,8 @@ class I3D():
             self.is_training: is_training
         }
 
+        return feed_dict
+
     def load_pretrain_model(self, sess, rgb_model_path, flow_model_path, load_Logits=False):
         """
         restore i3d rgb and flow pretrain model
@@ -202,13 +230,13 @@ class I3D():
                 print('Failed restore I3D {0} model from {1}, for\n \t{2}'.format(flag, model_path, e))
                 continue
 
-    def get_rgb_flow_loss(self, mode='RGB', labels=None, logits=None, loss_epsilon=7e-7):
+    def get_rgb_flow_loss(self, mode='RGB', labels=None, logits=None, weight_lambda=7e-7):
         """
         get rgb or flow loss
         :param mode:
         :param labels:
         :param logits:
-        :param loss_epsilon:
+        :param weight_lambda:
         :return:
         """
         # add L2 regularization to weights
@@ -219,12 +247,13 @@ class I3D():
                 tf.add_to_collection('weight_l2', weight_l2)
         loss_weight = tf.add_n(tf.get_collection('weight_l2'), 'loss_weight')
 
-        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-            labels=labels, logits=logits))
-        total_loss = loss + loss_epsilon * loss_weight
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels,
+                                                                      logits=logits))
+        total_loss = loss + weight_lambda * loss_weight
         tf.summary.scalar('{0} loss'.format(mode), loss)
         tf.summary.scalar('{0} loss_weight'.format(mode), loss_weight)
         tf.summary.scalar('{0} total_loss'.format(mode), total_loss)
+
 
         return total_loss
 
@@ -243,10 +272,13 @@ class I3D():
         src_scope = '{0}/inception_i3d/Mixed_5b/Branch_2/Conv3d_0a_3x3'.format(model_flag)
         dst_scope = '{0}/inception_i3d/Mixed_5b/Branch_2/Conv3d_0b_3x3'.format(model_flag)
 
+        dense_layer_scope = '{0}/Dense_Logits'.format(model_flag)
+
         self.load_rename_checkpoint_variable(checkpoint_path=model_path, src_scope=src_scope, dst_scope=dst_scope)
 
+
         # # generate rgb and flow restore op
-        custom_scope = [dst_scope]
+        custom_scope = [dst_scope, dense_layer_scope]
         if load_Logits is None or load_Logits is False:
             custom_scope.append('{0}/inception_i3d/Logits'.format(model_flag))
 
@@ -262,11 +294,15 @@ class I3D():
         :param custom_scope:
         :return:
         """
+
         model_variable = tf.global_variables(variable_scope)
         for scope in custom_scope:
             custom_variable = tf.global_variables(scope=scope)
 
             [model_variable.remove(variable) for variable in custom_variable]
+
+        # remove extend variables
+        [model_variable.remove(var) for var in model_variable if var not in self.raw_model_variables]
 
         saver = tf.train.Saver(var_list=model_variable, reshape=True)
 
@@ -281,6 +317,9 @@ class I3D():
         :return:
         """
         dst_variable = tf.global_variables(scope=dst_scope)
+
+        # remove extend variables
+        [dst_variable.remove(var) for var in dst_variable if var not in self.raw_model_variables]
 
         dst_var_names = [var.op.name for var in dst_variable]
 
