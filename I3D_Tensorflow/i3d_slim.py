@@ -287,7 +287,7 @@ class I3D():
 
         return True
 
-    def get_saver(self, variable_scope, custom_scope):
+    def get_saver(self, mode_scope, custom_scope):
         """
         remove custom variable
         :param variables:
@@ -295,14 +295,14 @@ class I3D():
         :return:
         """
 
-        model_variable = tf.global_variables(variable_scope)
+        model_variable = tf.global_variables(mode_scope)
         for scope in custom_scope:
             custom_variable = tf.global_variables(scope=scope)
 
             [model_variable.remove(variable) for variable in custom_variable]
 
         # remove extend variables
-        [model_variable.remove(var) for var in model_variable if var not in self.raw_model_variables]
+        model_variable = [var for var in model_variable if var in self.raw_model_variables]
 
         saver = tf.train.Saver(var_list=model_variable, reshape=True)
 
@@ -318,8 +318,9 @@ class I3D():
         """
         dst_variable = tf.global_variables(scope=dst_scope)
 
-        # remove extend variables
-        [dst_variable.remove(var) for var in dst_variable if var not in self.raw_model_variables]
+        # filter momentum variable or remove extend variables
+        dst_variable = [var for var in dst_variable if var in self.raw_model_variables]
+
 
         dst_var_names = [var.op.name for var in dst_variable]
 
