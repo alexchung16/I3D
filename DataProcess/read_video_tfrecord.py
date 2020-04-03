@@ -71,7 +71,7 @@ def parse_example(serialized_sample, class_depth, is_training=False):
     # first step enlarge image size
     # second step dataset operation
 
-    # image augmentation
+    # # image augmentation
     # rgb_video = video_process(input_video=rgb_video, clip_size=clip_size, target_shape=target_shape, mode='rgb',
     #                           is_training=is_training)
     # flow_video = video_process(input_video=flow_video, clip_size=clip_size, target_shape=target_shape, mode='flow',
@@ -82,7 +82,7 @@ def parse_example(serialized_sample, class_depth, is_training=False):
     return rgb_video, flow_video, label, filename
 
 
-def video_process(input_video, clip_size, target_shape, mode='rgb', is_training=False):
+def video_process(input_video_batch, clip_size, target_shape, mode='rgb', is_training=False):
     """
 
     :param input_video:
@@ -95,47 +95,79 @@ def video_process(input_video, clip_size, target_shape, mode='rgb', is_training=
 
     # enlarge image to same size
     # squeeze batch dimension
-    input_video = tf.squeeze(input_video, axis=0)
+
+    input_video_batch = tf.convert_to_tensor(input_video_batch)
     try:
-        shape = input_video.get_shape()
-        frames, height, width, depth = int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])
+        batch_size = int(input_video_batch.get_shape()[0])
 
-        # frames = tf.to_float(frames)
-        # clip_size = tf.convert_to_tensor(clip_size, dtype=tf.float32)
-        # start_frame, end_frame = tf.cond(tf.greater(frames, clip_size),
-        #                                  true_fn=
-        #                                  lambda : (tf.random.uniform(shape=[], minval=0, maxval=(frames - clip_size -1)),
-        #                                            start_frame +  clip_size),
-        #                                  false_fn= lambda : (0, start_frame + frames))
-        if clip_size < frames:
-            start_frame = np.random.randint(low=0, high=(frames - clip_size -1), dtype=np.int32)
-            end_frame = start_frame +  clip_size
-        else:
-            start_frame = 0
-            end_frame = start_frame + frames
-
-        output_video = None
-        for clip_index in range(start_frame, end_frame, 1):
-
-            frame = tf.gather(params=input_video, indices=clip_index, axis=0)
-
-            frame = augmentation_image(frame, target_shape=target_shape, mode=mode, is_training=is_training)
-
-            # expend dimension
-            frame = tf.expand_dims(frame, axis=0)
-
-            if output_video is None:
-                output_video = frame
+        output_video_batch = None
+        for index in range(batch_size):
+            # process video
+            output_video = augmentation_video(video=tf.gather(input_video_batch, indices=index, axis=0),
+                                              clip_size=clip_size,
+                                              target_shape=target_shape,
+                                              mode=mode,
+                                              is_training=is_training)
+            # expend video dim for concat to video batch
+            output_video = tf.expand_dims(output_video, axis=0)
+            if output_video_batch is None:
+                output_video_batch = output_video
             else:
-                output_video = tf.concat(values=[output_video, frame], axis=0)
+                output_video_batch = tf.concat(values=[output_video_batch, output_video], axis=0)
 
-        # recover to input dimension
-        output_video = tf.expand_dims(output_video, axis=0)
-
-        return output_video
+        return output_video_batch
 
     except Exception as e:
+
         print(e)
+
+def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
+    """
+
+    :param video:
+    :param target_shape:
+    :param mode:
+    :param is_training:
+    :return:
+    """
+
+    # frames = tf.to_float(frames)
+    # clip_size = tf.convert_to_tensor(clip_size, dtype=tf.float32)
+    # start_frame, end_frame = tf.cond(tf.greater(frames, clip_size),
+    #                                  true_fn=
+    #                                  lambda : (tf.random.uniform(shape=[], minval=0, maxval=(frames - clip_size -1)),
+    #                                            start_frame +  clip_size),
+    #                                  false_fn= lambda : (0, start_frame + frames))
+    shape = video.get_shape()
+    frames, height, width, depth = int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])
+
+    if clip_size < frames:
+        start_frame = np.random.randint(low=0, high=(frames - clip_size - 1), dtype=np.int32)
+        end_frame = start_frame + clip_size
+    else:
+        start_frame = 0
+        end_frame = start_frame + frames
+
+    output_video = None
+    for clip_index in range(start_frame, end_frame, 1):
+
+        frame = tf.gather(params=video, indices=clip_index, axis=0)
+
+        frame = augmentation_image(frame, target_shape=target_shape, mode=mode, is_training=is_training)
+
+        # expend dimension
+        frame = tf.expand_dims(frame, axis=0)
+
+        if output_video is None:
+            output_video = frame
+        else:
+            output_video = tf.concat(values=[output_video, frame], axis=0)
+
+    # # recover to input dimension
+    # output_video = tf.expand_dims(output_video, axis=0)
+
+    return output_video
+
 
 def augmentation_image(image, target_shape, mode='rgb', is_training=False):
     """
@@ -319,7 +351,7 @@ if __name__ == "__main__":
     record_file = os.path.join(tfrecord_dir, 'train')
     rgb_video_batch, flow_video_batch, label_batch, filename = dataset_tfrecord(record_file=record_file,
                                                                                 class_depth=5,
-                                                                                batch_size=1,
+                                                                                batch_size=6,
                                                                                 is_training=True)
     # augmentation video
     # create local and global variables initializer group
