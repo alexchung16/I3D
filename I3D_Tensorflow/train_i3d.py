@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------------------
-# @ File       : train_id3.py
+# @ File       : train_i3d.py
 # @ Description:  
 # @ Author     : Alex Chung
 # @ Contact    : yonganzhong@outlook.com
@@ -16,7 +16,7 @@ import numpy as np
 import tensorflow as tf
 
 from DataProcess.read_video_tfrecord import get_num_samples, dataset_tfrecord, video_process
-from ID3_Tensorflow.i3d_slim import I3D
+from I3D_Tensorflow.i3d_slim import I3D
 
 
 
@@ -52,23 +52,21 @@ FLAGS = flags.FLAGS
 
 
 
-
 if __name__ == "__main__":
 
     train_num_samples = get_num_samples(record_dir=FLAGS.train_data)
-    val_num_samples = get_num_samples(record_dir=FLAGS.val_data)
+    # val_num_samples = get_num_samples(record_dir=FLAGS.val_data)
     # approximate samples per epoch
 
     # Get the number of training/validation steps per epoch
     train_batches_per_epoch = int(np.ceil(train_num_samples / FLAGS.batch_size))
-    val_batches_per_epoch = int(np.ceil(val_num_samples / FLAGS.batch_size))
+    # val_batches_per_epoch = int(np.ceil(val_num_samples / FLAGS.batch_size))
 
     # construct i3d network
     i3d = I3D(num_classes=FLAGS.num_classes,
               learning_rate=FLAGS.learning_rate,
               momentum_rate=FLAGS.momentum_rate,
-              keep_prob=FLAGS.keep_prob,
-              is_pretrain=FLAGS.is_pretrain)
+              keep_prob=FLAGS.keep_prob)
 
     train_rgb_video, train_flow_video, train_label, train_filename = dataset_tfrecord(record_file=FLAGS.train_data,
                                                                                       batch_size=FLAGS.batch_size,
@@ -76,11 +74,11 @@ if __name__ == "__main__":
                                                                                       epoch=FLAGS.epoch,
                                                                                       shuffle=True)
 
-    test_rgb_video, test_flow_video, test_label, test_filename = dataset_tfrecord(record_file=FLAGS.val_data,
-                                                                                  batch_size=FLAGS.batch_size,
-                                                                                  class_depth=FLAGS.num_classes,
-                                                                                  epoch=FLAGS.epoch,
-                                                                                  shuffle=True)
+    # test_rgb_video, test_flow_video, test_label, test_filename = dataset_tfrecord(record_file=FLAGS.val_data,
+    #                                                                               batch_size=FLAGS.batch_size,
+    #                                                                               class_depth=FLAGS.num_classes,
+    #                                                                               epoch=FLAGS.epoch,
+    #                                                                               shuffle=True)
 
     init_op = tf.group(
         tf.global_variables_initializer(),
@@ -101,6 +99,11 @@ if __name__ == "__main__":
         flow_model_path = os.path.join(pretrain_model_dir, 'flow_imagenet', 'model.ckpt')
 
         summary_op = tf.summary.merge_all()
+
+
+        for var in tf.global_variables():
+            print(var)
+
         # load pretrain model
         if FLAGS.is_pretrain:
             # remove variable of fc8 layer from pretrain model
@@ -137,7 +140,8 @@ if __name__ == "__main__":
 
                         feed_dict = i3d.fill_feed_dict(rgb_video_feed=input_flow_video,
                                                        flow_video_feed=input_flow_video,
-                                                       label_feed=train_label)
+                                                       label_feed=train_label,
+                                                       is_training=True)
 
                         _, rgb_loss, flow_loss, train_accuracy, summary = sess.run(fetches=[i3d.train, i3d.rgb_loss,
                                                                                             i3d.flow_loss, i3d.accuracy,
