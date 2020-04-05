@@ -18,6 +18,13 @@ import tensorflow as tf
 from DataProcess.read_video_tfrecord import get_num_samples, dataset_tfrecord, video_process
 from I3D_Tensorflow.i3d_slim import I3D
 
+# compatible GPU version problem
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
 
 
 original_dataset_dir = '/home/alex/Documents/dataset/video_binary'
@@ -38,7 +45,7 @@ flags.DEFINE_integer('height', 224, 'Number of height size.')
 flags.DEFINE_integer('width', 225, 'Number of width size.')
 flags.DEFINE_integer('depth', 3, 'Number of depth size.')
 flags.DEFINE_integer('num_classes', 2, 'Number of image class.')
-flags.DEFINE_integer('batch_size', 6, 'Batch size Must divide evenly into the dataset sizes.')
+flags.DEFINE_integer('batch_size', 1, 'Batch size Must divide evenly into the dataset sizes.')
 flags.DEFINE_integer('epoch', 30, 'Number of epoch size.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_float('momentum_rate', 0.9, 'Initial momentum rate.')
@@ -54,13 +61,14 @@ FLAGS = flags.FLAGS
 
 if __name__ == "__main__":
 
+
     train_num_samples = get_num_samples(record_dir=FLAGS.train_data)
     # val_num_samples = get_num_samples(record_dir=FLAGS.val_data)
     # approximate samples per epoch
 
     # Get the number of training/validation steps per epoch
-    train_batches_per_epoch = int(np.ceil(train_num_samples / FLAGS.batch_size))
-    # val_batches_per_epoch = int(np.ceil(val_num_samples / FLAGS.batch_size))
+    train_per_epoch_step = int(np.ceil(train_num_samples / FLAGS.batch_size))
+    # val_per_epoch_step = int(np.ceil(val_num_samples / FLAGS.batch_size))
 
     # construct i3d network
     i3d = I3D(num_classes=FLAGS.num_classes,
@@ -86,7 +94,6 @@ if __name__ == "__main__":
     )
     with tf.Session() as sess:
         sess.run(init_op)
-
         # graph
         graph = tf.get_default_graph()
         # write op
@@ -99,15 +106,10 @@ if __name__ == "__main__":
         flow_model_path = os.path.join(pretrain_model_dir, 'flow_imagenet', 'model.ckpt')
 
         summary_op = tf.summary.merge_all()
-
-
-        for var in tf.global_variables():
-            print(var)
-
         # load pretrain model
-        if FLAGS.is_pretrain:
-            # remove variable of fc8 layer from pretrain model
-            i3d.load_pretrain_model(sess, rgb_model_path, flow_model_path, load_Logits=False)
+        # if FLAGS.is_pretrain:
+        #     # remove variable of fc8 layer from pretrain model
+        #     i3d.load_pretrain_model(sess, rgb_model_path, flow_model_path, load_Logits=False)
 
         # print(sess.run('vgg_16/conv1/conv1_1/biases:0'))
         coord = tf.train.Coordinator()
@@ -128,7 +130,7 @@ if __name__ == "__main__":
                 for epoch in range(FLAGS.epoch):
                     print('Epoch: {0}/{1}'.format(epoch, FLAGS.epoch))
 
-                    for train_step in range(train_batches_per_epoch):
+                    for step in range(train_per_epoch_step):
 
                         raw_rgb_video, raw_flow_video, train_label, train_filename = \
                             sess.run([train_rgb_video, train_flow_video, train_label, train_filename])
@@ -138,24 +140,39 @@ if __name__ == "__main__":
 
                         input_rgb_video, input_flow_video = sess.run([rgb_video, flow_video])
 
-                        feed_dict = i3d.fill_feed_dict(rgb_video_feed=input_flow_video,
+                        feed_dict = i3d.fill_feed_dict(rgb_video_feed=input_rgb_video,
                                                        flow_video_feed=input_flow_video,
                                                        label_feed=train_label,
                                                        is_training=True)
 
-                        _, rgb_loss, flow_loss, train_accuracy, summary = sess.run(fetches=[i3d.train, i3d.rgb_loss,
-                                                                                            i3d.flow_loss, i3d.accuracy,
-                                                                                            summary_op],
+                        _, rgb_loss, summary = sess.run(fetches=[i3d.train, i3d.rgb_loss,summary_op],
                                                                                    feed_dict=feed_dict)
-                        train_rgb_acc += np.sum(train_accuracy[0])
-                        train_flow_acc += np.sum(train_accuracy[1])
-                        train_model_acc += np.sum(train_accuracy[2])
+                        # record the number of accuracy predict
 
-                        print('step {0}: train rgb loss: {1}, train flow loss: {2} train rgb accuracy: {3}, '
-                              'train flow accuracy {4}, model accuracy {5}'.format(train_step, rgb_loss, flow_loss,
-                                                                                   train_rgb_acc, train_flow_acc,
-                                                                                   train_model_acc))
-                        write.add_summary(summary=summary, global_step=train_step)
+
+
+                        print('step {0}: train rgb loss: {1}'.format(step, rgb_loss))
+                        # _, rgb_loss, flow_loss, train_accuracy, summary = sess.run(fetches=[i3d.train, i3d.rgb_loss,
+                        #                                                                    i3d.accuracy,
+                        #                                                                     summary_op],
+                        #                                                            feed_dict=feed_dict)
+                        # # record the number of accuracy predict
+                        # train_rgb_acc += np.sum(train_accuracy[0])
+                        # train_flow_acc += np.sum(train_accuracy[1])
+                        # train_model_acc += np.sum(train_accuracy[2])
+                        #
+                        # # number of samples
+                        # num_samples = (epoch * train_per_epoch_step + step) * FLAGS.batch_size
+                        # # calculate accuracy
+                        # train_rgb_acc /= num_samples
+                        # train_flow_acc /= num_samples
+                        # train_model_acc /= num_samples
+                        #
+                        # print('step {0}: train rgb loss: {1}, train flow loss: {2} train rgb accuracy: {3}, '
+                        #       'train flow accuracy {4}, model accuracy {5}'.format(step, rgb_loss, flow_loss,
+                        #                                                            train_rgb_acc, train_flow_acc,
+                        #                                                            train_model_acc))
+                        write.add_summary(summary=summary, global_step=step)
 
                     # for val_step in range(val_batches_per_epoch):
                     #     raw_rgb_video, raw_flow_video, train_label, train_filename = \
@@ -181,19 +198,19 @@ if __name__ == "__main__":
 
                 # save model
                 # get op name for save model
-                rgb_input_op = i3d.rgb_input_data
-                flow_input_op = i3d.flow_input_data
-
-                logit_op = i3d.model_logits.op.name
-                # convert variable to constant
-                input_graph_def = tf.get_default_graph().as_graph_def()
-                constant_graph = tf.graph_util.convert_variables_to_constants(sess, input_graph_def,
-                                                                              output_node_names=[rgb_input_op.op.name,
-                                                                                                 flow_input_op.op.name,
-                                                                                                 logit_op.op.name])
-                # save to serialize file
-                with tf.gfile.FastGFile(name=model_name, mode='wb') as f:
-                    f.write(constant_graph.SerializeToString())
+                # rgb_input_op = i3d.rgb_input_data
+                # flow_input_op = i3d.flow_input_data
+                #
+                # logit_op = i3d.model_logits.op.name
+                # # convert variable to constant
+                # input_graph_def = tf.get_default_graph().as_graph_def()
+                # constant_graph = tf.graph_util.convert_variables_to_constants(sess, input_graph_def,
+                #                                                               output_node_names=[rgb_input_op.op.name,
+                #                                                                                  flow_input_op.op.name,
+                #                                                                                  logit_op.op.name])
+                # # save to serialize file
+                # with tf.gfile.FastGFile(name=model_name, mode='wb') as f:
+                #     f.write(constant_graph.SerializeToString())
 
         except Exception as e:
             print(e)
