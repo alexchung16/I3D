@@ -131,7 +131,7 @@ def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
     :return:
     """
 
-    # frames = tf.to_float(frames)
+    # frames = tf.cast(frames, dtype=tf.float32)
     # clip_size = tf.convert_to_tensor(clip_size, dtype=tf.float32)
     # start_frame, end_frame = tf.cond(tf.greater(frames, clip_size),
     #                                  true_fn=
@@ -217,14 +217,14 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
 
     shape = tf.shape(image)
 
-    height, width = tf.to_float(shape[0]), tf.to_float(shape[1])
+    height, width = tf.cast(shape[0], dtype=tf.float32), tf.cast(shape[1], dtype=tf.float32)
 
     resize_scale = tf.cond(pred=tf.greater(height, width),
                            true_fn=lambda : smaller_side / width,
                            false_fn=lambda : smaller_side / height)
 
-    new_height = tf.to_int32(tf.rint(height * resize_scale))
-    new_width = tf.to_int32(tf.rint(width * resize_scale))
+    new_height = tf.cast(tf.rint(height * resize_scale), dtype=tf.int32)
+    new_width = tf.cast(tf.rint(width * resize_scale), dtype=tf.int32)
 
     resize_image = tf.image.resize(image, size=(new_height, new_width))
 
