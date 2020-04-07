@@ -14,6 +14,8 @@ import sonnet as snt
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+import I3D_Tensorflow.i3d as i3d
+
 class I3D():
     """
       I3D model
@@ -86,6 +88,7 @@ class I3D():
             # To change 400 classes to custom classes
             rgb_logits = tf.layers.dense(rgb_logits, num_classes, use_bias=True, name='Dense_Logits')
 
+
         with tf.variable_scope('Flow'):
             # insert i3d model
             model = InceptionI3d(400, spatial_squeeze=True, final_endpoint='Logits')
@@ -109,13 +112,13 @@ class I3D():
 
 
 
-    def losses(self, rgb_logits, flow_loggits, labels, weight_lambda=7e-7):
+    def losses(self, rgb_logits, flow_logits, labels, weight_lambda=7e-7):
         """
         :return:
         """
         rgb_loss_op = self.get_rgb_flow_loss('RGB', labels=labels, logits=rgb_logits,
                                              weight_lambda=weight_lambda)
-        flow_loss_op = self.get_rgb_flow_loss('Flow', labels=labels, logits=flow_loggits,
+        flow_loss_op = self.get_rgb_flow_loss('Flow', labels=labels, logits=flow_logits,
                                               weight_lambda=weight_lambda)
 
         return rgb_loss_op, flow_loss_op
@@ -136,7 +139,7 @@ class I3D():
         rgb_variable = tf.global_variables(scope='RGB')
         flow_variable = tf.global_variables(scope='Flow')
         #
-        rgb_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope='RGB')
+        rgb_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(rgb_update_ops):
             rgb_train_op = tf.train.MomentumOptimizer(learning_rate=learning_rate,
                                                       momentum=self.momentum_rate).minimize(rgb_loss,
@@ -161,10 +164,12 @@ class I3D():
         rgb_acc = tf.equal(tf.argmax(self.rgb_logits, 1), tf.argmax(self.input_label, 1))
         flow_acc = tf.equal(tf.argmax(self.flow_logits, 1), tf.argmax(self.input_label, 1))
         model_acc = tf.equal(tf.argmax(self.model_logits, 1), tf.argmax(self.input_label, 1))
+
         # accuracy mean
         # rgb_accuracy = tf.reduce_mean(tf.cast(rgb_acc, tf.float32))
         # flow_accuracy = tf.reduce_mean(tf.cast(flow_acc, tf.float32))
         # model_accuracy = tf.reduce_mean(tf.cast(model_acc, tf.float32))
+
 
         return rgb_acc, flow_acc, model_acc
 
@@ -488,7 +493,7 @@ class InceptionI3d(snt.AbstractModule):
                                     is_training=is_training)
 
         # MaxPool3d_4a_3x3
-        net = tf.nn.max_pool3d(input=net, ksize=(1, 3, 3, 3, 1), strides=(1, 2, 2, 2, 1), padding=snt.SAME,
+        net = tf.nn.max_pool3d(input=net, ksize=(1, 3, 3, 3, 1), strides=(1, 2, 4, 4, 1), padding=snt.SAME,
                                name='MaxPool3d_4a_3x3')
         # Mixed_4b
         net = self.inception_module(inputs=net, output_list=[192, 96, 208, 16, 48, 64], name='Mixed_4b',
