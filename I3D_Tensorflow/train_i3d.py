@@ -107,9 +107,9 @@ if __name__ == "__main__":
 
         summary_op = tf.summary.merge_all()
         # load pretrain model
-        # if FLAGS.is_pretrain:
-        #     # remove variable of fc8 layer from pretrain model
-        #     i3d.load_pretrain_model(sess, rgb_model_path, flow_model_path, load_Logits=False)
+        if FLAGS.is_pretrain:
+            # remove variable of fc8 layer from pretrain model
+            i3d.load_pretrain_model(sess, rgb_model_path, flow_model_path, load_Logits=False)
 
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
@@ -129,43 +129,43 @@ if __name__ == "__main__":
                 for epoch in range(FLAGS.epoch):
                     print('Epoch: {0}/{1}'.format(epoch, FLAGS.epoch))
 
-                    # for step in range(train_per_epoch_step):
-                    #
-                    #     raw_rgb_video, raw_flow_video, input_label, input_filename = \
-                    #         sess.run([train_rgb_video, train_flow_video, train_label, train_filename])
-                    #
-                    #     rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=True)
-                    #     flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=True)
-                    #
-                    #     input_rgb_video, input_flow_video = sess.run([rgb_video, flow_video])
-                    #
-                    #     feed_dict = i3d.fill_feed_dict(rgb_video_feed=input_rgb_video,
-                    #                                    flow_video_feed=input_flow_video,
-                    #                                    label_feed=input_label,
-                    #                                    is_training=True)
-                    #
-                    #
-                    #     _, rgb_loss, flow_loss, train_accuracy, summary = sess.run(fetches=[i3d.train, i3d.rgb_loss,
-                    #                                                                         i3d.flow_loss, i3d.accuracy,
-                    #                                                                         summary_op],
-                    #                                                                feed_dict=feed_dict)
-                    #     # record the number of accuracy predict
-                    #     train_rgb_acc += np.sum(train_accuracy[0])
-                    #     train_flow_acc += np.sum(train_accuracy[1])
-                    #     train_model_acc += np.sum(train_accuracy[2])
-                    #
-                    #     # number of samples
-                    #     num_samples = (epoch * train_per_epoch_step + step + 1) * FLAGS.batch_size
-                    #     # calculate accuracy
-                    #     train_rgb_acc /= num_samples
-                    #     train_flow_acc /= num_samples
-                    #     train_model_acc /= num_samples
-                    #
-                    #     print('step {0}: train rgb loss: {1}, train flow loss: {2} train rgb accuracy: {3}, '
-                    #           'train flow accuracy {4}, model accuracy {5}'.format(step, rgb_loss, flow_loss,
-                    #                                                                train_rgb_acc, train_flow_acc,
-                    #                                                                train_model_acc))
-                    #     write.add_summary(summary=summary, global_step=step)
+                    for step in range(train_per_epoch_step):
+
+                        raw_rgb_video, raw_flow_video, input_label, input_filename = \
+                            sess.run([train_rgb_video, train_flow_video, train_label, train_filename])
+
+                        rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=True)
+                        flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=True)
+
+                        input_rgb_video, input_flow_video = sess.run([rgb_video, flow_video])
+
+                        feed_dict = i3d.fill_feed_dict(rgb_video_feed=input_rgb_video,
+                                                       flow_video_feed=input_flow_video,
+                                                       label_feed=input_label,
+                                                       is_training=True)
+
+
+                        _, rgb_loss, flow_loss, train_accuracy, summary = sess.run(fetches=[i3d.train, i3d.rgb_loss,
+                                                                                            i3d.flow_loss, i3d.accuracy,
+                                                                                            summary_op],
+                                                                                   feed_dict=feed_dict)
+                        # record the number of accuracy predict
+                        train_rgb_acc += np.sum(train_accuracy[0])
+                        train_flow_acc += np.sum(train_accuracy[1])
+                        train_model_acc += np.sum(train_accuracy[2])
+
+                        # number of samples
+                        num_samples = (epoch * train_per_epoch_step + step + 1) * FLAGS.batch_size
+                        # calculate accuracy
+                        train_rgb_acc /= num_samples
+                        train_flow_acc /= num_samples
+                        train_model_acc /= num_samples
+
+                        print('step {0}: train rgb loss: {1}, train flow loss: {2} train rgb accuracy: {3}, '
+                              'train flow accuracy {4}, model accuracy {5}'.format(step, rgb_loss, flow_loss,
+                                                                                   train_rgb_acc, train_flow_acc,
+                                                                                   train_model_acc))
+                        write.add_summary(summary=summary, global_step=step)
 
                     for val_step in range(val_per_epoch_step):
                         raw_rgb_video, raw_flow_video, input_label, input_filename = \
