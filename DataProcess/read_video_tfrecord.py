@@ -97,29 +97,29 @@ def video_process(input_video_batch, clip_size, target_shape, mode='rgb', is_tra
     # squeeze batch dimension
 
     input_video_batch = tf.convert_to_tensor(input_video_batch)
-    try:
-        batch_size = int(input_video_batch.get_shape()[0])
+    # try:
+    batch_size = int(input_video_batch.get_shape()[0])
 
-        output_video_batch = None
-        for index in range(batch_size):
-            # process video
-            output_video = augmentation_video(video=tf.gather(input_video_batch, indices=index, axis=0),
-                                              clip_size=clip_size,
-                                              target_shape=target_shape,
-                                              mode=mode,
-                                              is_training=is_training)
-            # expend video dim for concat to video batch
-            output_video = tf.expand_dims(output_video, axis=0)
-            if output_video_batch is None:
-                output_video_batch = output_video
-            else:
-                output_video_batch = tf.concat(values=[output_video_batch, output_video], axis=0)
+    output_video_batch = None
+    for index in range(batch_size):
+        # process video
+        output_video = augmentation_video(video=tf.gather(input_video_batch, indices=index, axis=0),
+                                          clip_size=clip_size,
+                                          target_shape=target_shape,
+                                          mode=mode,
+                                          is_training=is_training)
+        # expend video dim for concat to video batch
+        output_video = tf.expand_dims(output_video, axis=0)
+        if output_video_batch is None:
+            output_video_batch = output_video
+        else:
+            output_video_batch = tf.concat(values=[output_video_batch, output_video], axis=0)
 
-        return output_video_batch
+    return output_video_batch
 
-    except Exception as e:
-
-        print(e)
+    # except Exception as e:
+    #
+    #     print(e)
 
 def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
     """
@@ -141,7 +141,7 @@ def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
     shape = video.get_shape()
     frames, height, width, depth = int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])
 
-    if clip_size < frames:
+    if clip_size <= frames:
         start_frame = np.random.randint(low=0, high=(frames - clip_size - 1), dtype=np.int32)
         end_frame = start_frame + clip_size
     else:
@@ -182,8 +182,7 @@ def augmentation_image(image, target_shape, mode='rgb', is_training=False):
                                    resize_side_max=np.rint(target_shape[0] * 2.08), is_training=is_training)
 
     #  crop to target_size
-    image = image_crop(image, output_height=target_shape[0], output_width=target_shape[1],
-                       is_training=is_training)
+    image = image_crop(image, output_height=target_shape[0], output_width=target_shape[1], is_training=is_training)
     if is_training:
         image = tf.image.flip_left_right(image)
 
@@ -223,8 +222,8 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
                            true_fn=lambda : smaller_side / width,
                            false_fn=lambda : smaller_side / height)
 
-    new_height = tf.cast(tf.rint(height * resize_scale), dtype=tf.int32)
-    new_width = tf.cast(tf.rint(width * resize_scale), dtype=tf.int32)
+    new_height = tf.cast(tf.math.rint(height * resize_scale), dtype=tf.int32)
+    new_width = tf.cast(tf.math.rint(width * resize_scale), dtype=tf.int32)
 
     resize_image = tf.image.resize(image, size=(new_height, new_width))
 
@@ -249,14 +248,14 @@ def image_crop(image, output_height=224, output_width=224, is_training=False):
 
         crop_image = tf.image.random_crop(image, size=(output_height, output_width, depth))
     else:
-        crop_image = central_crop(image, output_height, output_width)
+        crop_image = centre_crop(image, output_height, output_width)
 
         # output type as input type
     crop_image = tf.cast(crop_image, dtype=image.dtype)
 
     return crop_image
 
-def central_crop(image, crop_height=224, crop_width=224):
+def centre_crop(image, crop_height=224, crop_width=224):
     """
     image central crop
     :param image:
@@ -284,7 +283,7 @@ def central_crop(image, crop_height=224, crop_width=224):
             tf.greater_equal(width, crop_width)),
         ['Image size greater than the crop size'])
 
-    offsets = tf.cast(tf.stack([offset_height, offset_width, 0]), dtype=tf.float32)
+    offsets = tf.cast(tf.stack([offset_height, offset_width, 0]), dtype=tf.int32)
 
     with tf.control_dependencies([size_assertion]):
         # crop with slice
@@ -374,8 +373,8 @@ if __name__ == "__main__":
             if not coord.should_stop():
                 raw_rgb_video, raw_flow_video, label = sess.run([rgb_video_batch, flow_video_batch, label_batch])
 
-                rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=True)
-                flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=True)
+                rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=False)
+                flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=False)
 
                 rgb_video, flow_video = sess.run([rgb_video, flow_video])
 
