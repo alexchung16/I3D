@@ -284,7 +284,7 @@ def central_crop(image, crop_height=224, crop_width=224):
             tf.greater_equal(width, crop_width)),
         ['Image size greater than the crop size'])
 
-    offsets = tf.to_int32(tf.stack([offset_height, offset_width, 0]))
+    offsets = tf.cast(tf.stack([offset_height, offset_width, 0]), dtype=tf.float32)
 
     with tf.control_dependencies([size_assertion]):
         # crop with slice
