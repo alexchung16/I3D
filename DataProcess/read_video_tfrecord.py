@@ -97,29 +97,29 @@ def video_process(input_video_batch, clip_size, target_shape, mode='rgb', is_tra
     # squeeze batch dimension
 
     input_video_batch = tf.convert_to_tensor(input_video_batch)
-    # try:
-    batch_size = int(input_video_batch.get_shape()[0])
+    try:
+        batch_size = int(input_video_batch.get_shape()[0])
 
-    output_video_batch = None
-    for index in range(batch_size):
-        # process video
-        output_video = augmentation_video(video=tf.gather(input_video_batch, indices=index, axis=0),
-                                          clip_size=clip_size,
-                                          target_shape=target_shape,
-                                          mode=mode,
-                                          is_training=is_training)
-        # expend video dim for concat to video batch
-        output_video = tf.expand_dims(output_video, axis=0)
-        if output_video_batch is None:
-            output_video_batch = output_video
-        else:
-            output_video_batch = tf.concat(values=[output_video_batch, output_video], axis=0)
+        output_video_batch = None
+        for index in range(batch_size):
+            # process video
+            output_video = augmentation_video(video=tf.gather(input_video_batch, indices=index, axis=0),
+                                              clip_size=clip_size,
+                                              target_shape=target_shape,
+                                              mode=mode,
+                                              is_training=is_training)
+            # expend video dim for concat to video batch
+            output_video = tf.expand_dims(output_video, axis=0)
+            if output_video_batch is None:
+                output_video_batch = output_video
+            else:
+                output_video_batch = tf.concat(values=[output_video_batch, output_video], axis=0)
 
-    return output_video_batch
+        return output_video_batch
 
-    # except Exception as e:
-    #
-    #     print(e)
+    except Exception as e:
+
+        print(e)
 
 def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
     """
