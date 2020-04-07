@@ -493,7 +493,7 @@ class InceptionI3d(snt.AbstractModule):
                                     is_training=is_training)
 
         # MaxPool3d_4a_3x3
-        net = tf.nn.max_pool3d(input=net, ksize=(1, 3, 3, 3, 1), strides=(1, 2, 4, 4, 1), padding=snt.SAME,
+        net = tf.nn.max_pool3d(input=net, ksize=(1, 3, 3, 3, 1), strides=(1, 2, 2, 2, 1), padding=snt.SAME,
                                name='MaxPool3d_4a_3x3')
         # Mixed_4b
         net = self.inception_module(inputs=net, output_list=[192, 96, 208, 16, 48, 64], name='Mixed_4b',
