@@ -121,7 +121,7 @@ def video_process(input_video_batch, clip_size, target_shape, mode='rgb', is_tra
 
         print(e)
 
-def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
+def augmentation_video(video, target_shape, mode, clip_size=None,is_training=False):
     """
 
     :param video:
@@ -141,7 +141,7 @@ def augmentation_video(video, clip_size, target_shape, mode, is_training=False):
     shape = video.get_shape()
     frames, height, width, depth = int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])
 
-    if clip_size < frames:
+    if clip_size != None and clip_size < frames:
         start_frame = np.random.randint(low=0, high=(frames - clip_size - 1), dtype=np.int32)
         end_frame = start_frame + clip_size
     else:
