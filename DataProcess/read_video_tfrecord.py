@@ -82,7 +82,7 @@ def parse_example(serialized_sample, class_depth, is_training=False):
     return rgb_video, flow_video, label, filename
 
 
-def video_process(input_video_batch, clip_size, target_shape, mode='rgb', is_training=False):
+def video_process(input_video_batch, target_shape, clip_size=None, mode='rgb', is_training=False):
     """
 
     :param input_video:
