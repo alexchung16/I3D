@@ -21,65 +21,136 @@ from tensorflow.python_io import tf_record_iterator
 original_dataset_dir = '/home/alex/Documents/dataset/video_binary'
 tfrecord_dir = os.path.join(original_dataset_dir, 'tfrecords')
 
-train_path = os.path.join(original_dataset_dir, 'train')
-test_path = os.path.join(original_dataset_dir, 'test')
+rgb_record_dir = os.path.join(tfrecord_dir, 'rgb')
+flow_record_dir = os.path.join(tfrecord_dir, 'flow')
+
+rgb_train_path = os.path.join(rgb_record_dir, 'train')
+rgb_val_path = os.path.join(rgb_record_dir, 'val')
+
+flow_train_path = os.path.join(flow_record_dir, 'train')
+flow_val_path = os.path.join(flow_record_dir, 'val')
 
 
 # def parse_example(serialized_sample, clip_size, target_shape, class_depth, is_training=False):
-def parse_example(serialized_sample, class_depth, is_training=False):
+def parse_example(serialized_sample, class_depth, mode=None, is_training=False):
     """
     parse tensor
     :param image_sample:
     :return:
     """
-
     # construct feature description
-    image_feature_description ={
+    if mode is None:
+        feature_description ={
 
-        "rgb_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
-        "flow_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
-        "label": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "height": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "width": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "rgb_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "flow_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "rgb_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "flow_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "filename": tf.io.FixedLenFeature(shape=[], dtype=tf.string)
-    }
-    feature = tf.io.parse_single_example(serialized=serialized_sample, features=image_feature_description)
+            "rgb_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
+            "flow_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
+            "label": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "height": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "width": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "rgb_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "flow_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "rgb_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "flow_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "filename": tf.io.FixedLenFeature(shape=[], dtype=tf.string)
+        }
+        feature = tf.io.parse_single_example(serialized=serialized_sample, features=feature_description)
 
+        # parse feature
+        rgb_video = parse_rgb_video(feature)
+        flow_video = parse_flow_video(feature)
+
+        label = tf.cast(feature['label'], tf.int32)
+        # onehot label
+        label = tf.one_hot(indices=label, depth=class_depth)
+
+        filename = tf.cast(feature['filename'], tf.string)
+
+        return rgb_video, flow_video, label, filename
+
+    elif mode == 'rgb':
+        feature_description = {
+
+            "rgb_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
+            "label": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "height": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "width": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "rgb_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "rgb_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "filename": tf.io.FixedLenFeature(shape=[], dtype=tf.string)
+        }
+        feature = tf.io.parse_single_example(serialized=serialized_sample, features=feature_description)
+
+        # parse feature
+        rgb_video = parse_rgb_video(feature)
+
+        label = tf.cast(feature['label'], tf.int32)
+        # onehot label
+        label = tf.one_hot(indices=label, depth=class_depth)
+
+        filename = tf.cast(feature['filename'], tf.string)
+
+        return rgb_video, label, filename
+
+    elif mode == 'flow':
+        feature_description = {
+
+            "rgb_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
+            "label": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "height": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "width": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "rgb_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "rgb_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "filename": tf.io.FixedLenFeature(shape=[], dtype=tf.string)
+        }
+        feature = tf.io.parse_single_example(serialized=serialized_sample, features=feature_description)
+
+        # parse feature
+        flow_video = parse_flow_video(feature)
+
+        label = tf.cast(feature['label'], tf.int32)
+        # onehot label
+        label = tf.one_hot(indices=label, depth=class_depth)
+
+        filename = tf.cast(feature['filename'], tf.string)
+
+        return flow_video, label, filename
+
+
+
+def parse_rgb_video(feature):
+    """
+    parse rgb video
+    :param feature:
+    :return:
+    """
     # parse feature
     rgb_video = tf.decode_raw(feature['rgb_video'], tf.uint8)
-    flow_video = tf.decode_raw(feature['flow_video'], tf.float32)
     # shape = tf.cast(feature['shape'], tf.int32)
     height = tf.cast(feature['height'], tf.int32)
     width = tf.cast(feature['width'], tf.int32)
     rgb_depth = tf.cast(feature['rgb_depth'], tf.int32)
-    flow_depth = tf.cast(feature['flow_depth'], tf.int32)
     rgb_frames = tf.cast(feature['rgb_frames'], tf.int32)
-    flow_frames = tf.cast(feature['flow_frames'], tf.int32)
-    label = tf.cast(feature['label'], tf.int32)
 
     rgb_video = tf.reshape(rgb_video, [rgb_frames, height, width, rgb_depth])
+
+    return rgb_video
+
+def parse_flow_video(feature):
+    """
+    parse flow video
+    :param feature:
+    :return:
+    """
+    flow_video = tf.decode_raw(feature['flow_video'], tf.float32)
+    # shape = tf.cast(feature['shape'], tf.int32)
+    height = tf.cast(feature['height'], tf.int32)
+    width = tf.cast(feature['width'], tf.int32)
+
+    flow_depth = tf.cast(feature['flow_depth'], tf.int32)
+    flow_frames = tf.cast(feature['flow_frames'], tf.int32)
     flow_video = tf.reshape(flow_video, [flow_frames, height, width, flow_depth])
 
-    filename = tf.cast(feature['filename'], tf.string)
-    # resize image shape
-    # random crop image
-    # before use shuffle_batch, use random_crop to make image shape to special size
-    # first step enlarge image size
-    # second step dataset operation
-
-    # # image augmentation
-    # rgb_video = video_process(input_video=rgb_video, clip_size=clip_size, target_shape=target_shape, mode='rgb',
-    #                           is_training=is_training)
-    # flow_video = video_process(input_video=flow_video, clip_size=clip_size, target_shape=target_shape, mode='flow',
-    #                            is_training=is_training)
-    # onehot label
-    label = tf.one_hot(indices=label, depth=class_depth)
-
-    return rgb_video, flow_video, label, filename
+    return flow_video
 
 
 def video_process(input_video_batch, target_shape, clip_size=None, mode='rgb', is_training=False):
@@ -291,7 +362,7 @@ def centre_crop(image, crop_height=224, crop_width=224):
 
     return tf.reshape(crop_image, cropped_shape)
 
-def dataset_tfrecord(record_file, class_depth, epoch=5, batch_size=10, shuffle=True, is_training=False):
+def dataset_tfrecord(record_file, class_depth, epoch=5, batch_size=10, shuffle=True, is_training=False, mode='rgb'):
     """
     construct iterator to read image
     :param record_file:
@@ -314,17 +385,17 @@ def dataset_tfrecord(record_file, class_depth, epoch=5, batch_size=10, shuffle=T
     # parse_img_dataset = raw_img_dataset.map(parse_example)
     # when parse_example has more than one parameter which used to process data
     parse_img_dataset = raw_img_dataset.map(lambda series_record:
-                                            parse_example(series_record, class_depth, is_training=is_training))
+                                            parse_example(series_record, class_depth, is_training=is_training, mode=mode))
     # get dataset batch
     if shuffle:
         shuffle_batch_dataset = parse_img_dataset.shuffle(buffer_size=batch_size*4).repeat(epoch).batch(batch_size=batch_size)
     else:
         shuffle_batch_dataset = parse_img_dataset.repeat(epoch).batch(batch_size=batch_size)
     # make dataset iterator
-    rgb_video, flow_video, label, filename = shuffle_batch_dataset.make_one_shot_iterator().get_next()
+    dataset = shuffle_batch_dataset.make_one_shot_iterator().get_next()
 
 
-    return rgb_video, flow_video, label, filename
+    return dataset
 
 
 def get_num_samples(record_dir):
@@ -347,11 +418,17 @@ def get_num_samples(record_dir):
     return num_samples
 
 if __name__ == "__main__":
-    record_file = os.path.join(tfrecord_dir, 'train')
-    rgb_video_batch, flow_video_batch, label_batch, filename = dataset_tfrecord(record_file=record_file,
-                                                                                class_depth=5,
-                                                                                batch_size=6,
-                                                                                is_training=True)
+
+    rgb_video_batch, rgb_label_batch, rgb_filename = dataset_tfrecord(record_file=rgb_train_path,
+                                                                 class_depth=5,
+                                                                 batch_size=6,
+                                                                 is_training=True,
+                                                                 mode='rgb')
+    flow_video_batch, flow_label_batch, flow_filename = dataset_tfrecord(record_file=flow_train_path,
+                                                                  class_depth=5,
+                                                                  batch_size=6,
+                                                                  is_training=True,
+                                                                  mode='flow')
     # augmentation video
     # create local and global variables initializer group
     init_op = tf.group(
@@ -361,7 +438,7 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         sess.run(init_op)
 
-        num_samples = get_num_samples(record_file)
+        num_samples = get_num_samples(rgb_train_path)
         print('all sample size is {0}'.format(num_samples))
         # create Coordinator to manage the life period of multiple thread
         coord = tf.train.Coordinator()
@@ -371,7 +448,8 @@ if __name__ == "__main__":
         print('threads: {0}'.format(threads))
         try:
             if not coord.should_stop():
-                raw_rgb_video, raw_flow_video, label = sess.run([rgb_video_batch, flow_video_batch, label_batch])
+                raw_rgb_video, rgb_label = sess.run([rgb_video_batch, rgb_label_batch])
+                raw_flow_video, flow_label = sess.run([flow_video_batch, flow_label_batch])
 
                 rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=False)
                 flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=False)
@@ -389,4 +467,5 @@ if __name__ == "__main__":
 
         # waiting all threads safely exit
         coord.join(threads)
-        sess.close()
+
+    sess.close()
