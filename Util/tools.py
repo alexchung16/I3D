@@ -13,6 +13,7 @@
 import math
 import sys
 import os
+import shutil
 
 
 def view_bar(message, num, total):
@@ -24,16 +25,29 @@ def view_bar(message, num, total):
     sys.stdout.flush()
 
 
-def makedir(path):
+def make_dir(path):
     """
     create dir
     :param path:
     :return:
     """
-    a = os.path.exists(path)
-    if os.path.exists(path) is False:
-        try:
+    try:
+        if os.path.exists(path) is False:
             os.makedirs(path)
             print('{0} has been created'.format(path))
-        except Exception as e:
-            print(e)
+    except Exception as e:
+        raise e
+
+
+def refresh_dir(path):
+
+    try:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.makedirs(path)
+        print('{0} has been refreshed'.format(path))
+    except Exception as e:
+        raise e
+
+
+
