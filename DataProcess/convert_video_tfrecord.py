@@ -22,20 +22,27 @@ from Util.tools import view_bar, make_dir, refresh_dir
 
 video_dir = '/home/alex/Documents/dataset/video_binary'
 dataset_dir = os.path.join(video_dir, 'split_bike_raft')
-tfrecord_dir = os.path.join(video_dir, 'tfrecords')
+
+rgb_record_dir = os.path.join(video_dir, 'tfrecords', 'rgb')
+flow_record_dir = os.path.join(video_dir, 'tfrecords', 'flow')
 
 train_data_dir = os.path.join(dataset_dir, 'train')
 val_data_dir = os.path.join(dataset_dir, 'val')
 
-train_target_dir = os.path.join(tfrecord_dir, 'train')
-val_target_dir = os.path.join(tfrecord_dir, 'val')
+rgb_train_target_dir = os.path.join(rgb_record_dir, 'train')
+rgb_val_target_dir = os.path.join(rgb_record_dir, 'val')
+
+flow_train_target_dir = os.path.join(flow_record_dir, 'train')
+flow_val_target_dir = os.path.join(flow_record_dir, 'val')
 
 flags = tf.app.flags
 flags.DEFINE_string('dataset_dir', dataset_dir, 'dataset dir')
 flags.DEFINE_string('train_data_dir', train_data_dir, 'train dataset dir')
 flags.DEFINE_string('val_data_dir', val_data_dir, 'validation dataset dir')
-flags.DEFINE_string('train_target_dir', train_target_dir, 'train target dir')
-flags.DEFINE_string('val_target_dir', val_target_dir, 'validation target dir')
+flags.DEFINE_string('rgb_train_target_dir', rgb_train_target_dir, 'train target dir')
+flags.DEFINE_string('rgb_val_target_dir', rgb_val_target_dir, 'validation target dir')
+flags.DEFINE_string('flow_train_target_dir', flow_train_target_dir, 'train target dir')
+flags.DEFINE_string('flow_val_target_dir', flow_val_target_dir, 'validation target dir')
 flags.DEFINE_string('save_name', 'train', 'save name')
 FLAGS = flags.FLAGS
 
@@ -298,7 +305,7 @@ def video_to_record(save_path, video_names, video_labels=None, sample_frames=Non
                                                      frame_height=flow_height, frame_width=flow_width,
                                                      flow_depth=flow_depth, filename=video_name, mode=mode)
                 writer.write(record=video_record)
-                view_bar(message='Conversion progress', num=count, total=len(video_name))
+                view_bar(message='Conversion progress', num=count, total=len(video_names))
                 count += 1
 
             except Exception as e:
@@ -435,7 +442,7 @@ if __name__ == "__main__":
     # pool.map(execute_tfrecord, zip(FLAGS.dataset_dir, FLAGS.save_dir))
 
     # execute train dataset to tfrecord
-    execute_convert_tfrecord(data_path=FLAGS.train_data_dir, target_path=FLAGS.train_target_dir, sample_frames=10,
+    execute_convert_tfrecord(data_path=FLAGS.train_data_dir, target_path=FLAGS.flow_train_target_dir, sample_frames=10,
                              per_record_capacity=100, mode='flow')
-    execute_convert_tfrecord(data_path=FLAGS.val_data_dir, target_path=FLAGS.val_target_dir, sample_frames=10,
+    execute_convert_tfrecord(data_path=FLAGS.val_data_dir, target_path=FLAGS.flow_val_target_dir, sample_frames=10,
                              per_record_capacity=100, mode='flow')
