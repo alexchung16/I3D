@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------------------
-# @ File       : train_i3d.py
+# @ File       : train_i3d_joint.py
 # @ Description:  
 # @ Author     : Alex Chung
 # @ Contact    : yonganzhong@outlook.com
@@ -16,7 +16,7 @@ import numpy as np
 import tensorflow as tf
 
 from DataProcess.read_video_tfrecord import get_num_samples, dataset_tfrecord, video_process
-from I3D_Tensorflow.i3d_slim import I3D
+from I3D_Tensorflow.i3d_slim_joint import I3D
 
 # compatible GPU version problem
 from tensorflow.compat.v1 import ConfigProto
@@ -45,7 +45,7 @@ flags.DEFINE_integer('height', 224, 'Number of height size.')
 flags.DEFINE_integer('width', 225, 'Number of width size.')
 flags.DEFINE_integer('depth', 3, 'Number of depth size.')
 flags.DEFINE_integer('num_classes', 2, 'Number of image class.')
-flags.DEFINE_integer('batch_size', 16, 'Batch size Must divide evenly into the dataset sizes.')
+flags.DEFINE_integer('batch_size', 1, 'Batch size Must divide evenly into the dataset sizes.')
 flags.DEFINE_integer('epoch', 30, 'Number of epoch size.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_float('momentum_rate', 0.9, 'Initial momentum rate.')
@@ -118,15 +118,16 @@ if __name__ == "__main__":
                 # used to count the step per epoch
 
 
-                train_rgb_acc = 0
-                train_flow_acc = 0
-                train_model_acc = 0
-
-                val_rgb_acc = 0
-                val_flow_acc = 0
-                val_model_acc = 0
-
                 for epoch in range(FLAGS.epoch):
+
+                    train_rgb_acc = 0
+                    train_flow_acc = 0
+                    train_model_acc = 0
+
+                    val_rgb_acc = 0
+                    val_flow_acc = 0
+                    val_model_acc = 0
+
                     print('Epoch: {0}/{1}'.format(epoch, FLAGS.epoch))
 
                     for step in range(train_per_epoch_step):
@@ -155,7 +156,8 @@ if __name__ == "__main__":
                         train_model_acc += np.sum(train_accuracy[2])
 
                         # number of samples
-                        num_samples = (epoch * train_per_epoch_step + step + 1) * FLAGS.batch_size
+                        # num_samples = (epoch * train_per_epoch_step + step + 1) * FLAGS.batch_size
+                        num_samples = FLAGS.batch_size
                         # calculate accuracy
                         train_rgb_acc /= num_samples
                         train_flow_acc /= num_samples
@@ -192,7 +194,8 @@ if __name__ == "__main__":
                         print(val_rgb_acc)
 
                     # number of samples
-                    num_samples = (epoch + 1) * FLAGS.batch_size
+                    # num_samples = (epoch + 1) * FLAGS.batch_size
+                    num_samples = val_num_samples
                     # calculate accuracy
                     val_rgb_acc /= num_samples
                     val_flow_acc /= num_samples
