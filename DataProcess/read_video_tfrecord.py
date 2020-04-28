@@ -94,12 +94,12 @@ def parse_example(serialized_sample, class_depth, mode=None, is_training=False):
     elif mode == 'flow':
         feature_description = {
 
-            "rgb_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
+            "flow_video": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
             "label": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
             "height": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
             "width": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-            "rgb_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-            "rgb_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "flow_depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
+            "flow_frames": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
             "filename": tf.io.FixedLenFeature(shape=[], dtype=tf.string)
         }
         feature = tf.io.parse_single_example(serialized=serialized_sample, features=feature_description)
