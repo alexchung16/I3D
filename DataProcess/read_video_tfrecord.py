@@ -213,7 +213,7 @@ def augmentation_video(video, target_shape, mode, clip_size=None,is_training=Fal
     frames, height, width, depth = int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])
 
     if clip_size != None and clip_size < frames:
-        start_frame = np.random.randint(low=0, high=(frames - clip_size - 1), dtype=np.int32)
+        start_frame = np.random.randint(low=0, high=(frames - clip_size), dtype=np.int32)
         end_frame = start_frame + clip_size
     else:
         start_frame = 0
