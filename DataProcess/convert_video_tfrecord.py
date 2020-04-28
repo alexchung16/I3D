@@ -233,8 +233,7 @@ def execute_convert_tfrecord(data_path, target_path, sample_frames=None,
                     video_labels=video_labels,
                     record_capacity=per_record_capacity,
                     mode=mode)
-    print("\nThere are {0} samples has successfully convert to tfrecord, save at {1}".format(len(video_names),
-                                                                                             target_path))
+
     return True
 
 def video_to_record(save_path, video_names, video_labels=None, sample_frames=None, record_capacity=500, mode=None):
@@ -311,7 +310,8 @@ def video_to_record(save_path, video_names, video_labels=None, sample_frames=Non
             except Exception as e:
                 print('\nFailed convert {0} , Please Check the samples whether exist or correct format'.format(video_name))
                 continue
-        writer.close()
+
+    print("\nThere are {0} samples has successfully convert to tfrecord, save at {1}".format(count, save_path))
 
     return True
 
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     # pool.map(execute_tfrecord, zip(FLAGS.dataset_dir, FLAGS.save_dir))
 
     # execute train dataset to tfrecord
-    execute_convert_tfrecord(data_path=FLAGS.train_data_dir, target_path=FLAGS.flow_train_target_dir, sample_frames=10,
+    execute_convert_tfrecord(data_path=FLAGS.train_data_dir, target_path=FLAGS.flow_train_target_dir, sample_frames=2,
                              per_record_capacity=100, mode='flow')
-    execute_convert_tfrecord(data_path=FLAGS.val_data_dir, target_path=FLAGS.flow_val_target_dir, sample_frames=10,
+    execute_convert_tfrecord(data_path=FLAGS.val_data_dir, target_path=FLAGS.flow_val_target_dir, sample_frames=2,
                              per_record_capacity=100, mode='flow')
