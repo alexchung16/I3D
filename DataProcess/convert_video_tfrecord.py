@@ -398,23 +398,23 @@ def serialize_example(rgb_video=None, flow_video=None,  label=None, rgb_frames=N
     # only rgb serialize
     elif mode == 'rgb':
         feature = {
-            "video": _bytes_feature(rgb_video.tobytes()),
+            "rgb_video": _bytes_feature(rgb_video.tobytes()),
             "label": _int64_feature(label),
             "height": _int64_feature(frame_height),
             "width": _int64_feature(frame_width),
-            "depth": _int64_feature(rgb_depth),
-            "frames": _int64_feature(rgb_frames),
+            "flow_depth": _int64_feature(rgb_depth),
+            "flow_frames": _int64_feature(rgb_frames),
             "filename": _bytes_feature(filename.encode())
         }
     # only flow serialize
     elif mode == 'flow':
         feature = {
-            "video": _bytes_feature(flow_video.tobytes()),
+            "flow_video": _bytes_feature(flow_video.tobytes()),
             "label": _int64_feature(label),
             "height": _int64_feature(frame_height),
             "width": _int64_feature(frame_width),
-            "depth": _int64_feature(flow_depth),
-            "frames": _int64_feature(flow_frames),
+            "flow_depth": _int64_feature(flow_depth),
+            "flow_frames": _int64_feature(flow_frames),
             "filename": _bytes_feature(filename.encode())
         }
     # create a feature message using tf.train.Example
