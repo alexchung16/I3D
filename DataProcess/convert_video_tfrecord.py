@@ -136,12 +136,12 @@ def rgb_frame_extract(video_path,  sample_frames=None):
     # get size of video frames
     video_length = get_video_length(video_path)
 
-    if sample_frames is not None and sample_frames<=(video_length-2):
-        start_frame = np.random.randint(0, (video_length - sample_frames - 2))
+    if sample_frames is not None and sample_frames<=video_length:
+        start_frame = np.random.randint(0, (video_length - sample_frames))
         end_frame = start_frame + sample_frames
     else:
         start_frame = 0
-        end_frame = video_length - 2
+        end_frame = video_length
 
     cap = cv.VideoCapture(video_path)
     for index in range(end_frame):
@@ -172,7 +172,7 @@ def flow_frame_extract(video_path,  sample_frames = None, epsilon=1e-5):
     # get size of video frames
     video_length = get_video_length(video_path)
 
-    if sample_frames is not None:
+    if sample_frames is not None and sample_frames <= (video_length-2):
         start_frame = np.random.randint(0, (video_length - sample_frames - 2))
         end_frame = start_frame + sample_frames
     else:
