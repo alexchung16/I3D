@@ -38,7 +38,6 @@ pretrain_model_dir = '/home/alex/Documents/pretraing_model/i3d'
 logs_dir = os.path.join(os.getcwd(), 'logs')
 
 
-
 flags = tf.app.flags
 flags.DEFINE_integer('clip_size', 4, 'Number of clips size, the minimum limit is 4 .')
 flags.DEFINE_integer('height', 224, 'Number of height size.')
@@ -51,7 +50,7 @@ flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
 flags.DEFINE_float('momentum_rate', 0.9, 'Initial momentum rate.')
 flags.DEFINE_float('keep_prob', 0.8, 'Number of probability that each element is kept.')
 flags.DEFINE_bool('is_pretrain', True, 'if True, use pretrain model.')
-flags.DEFINE_string('mode', 'rgb', 'train mode RGB|Flow.')
+flags.DEFINE_string('mode', 'rgb', 'train mode rgb|flow.')
 flags.DEFINE_string('pretrain_model_dir', pretrain_model_dir, 'pretrain model dir.')
 flags.DEFINE_string('rgb_data', rgb_data, 'Directory to put the rgb data.')
 flags.DEFINE_string('flow_data', flow_data, 'Directory to put the optical flow data.')

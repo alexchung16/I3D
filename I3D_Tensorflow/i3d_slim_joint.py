@@ -29,7 +29,7 @@ class I3D():
         self.rgb_input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, 224, 224, 3],
                                                        name="rgb_video")
         # convert size scale to (-1, 1)
-        # self.rgb_input_data = self.image_rescale(self.rgb_input_data)
+        self.rgb_input_data = self.image_rescale(self.rgb_input_data)
 
         self.flow_input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, 224, 224, 2],
                                                        name="flow_video")
@@ -179,19 +179,21 @@ class I3D():
         return tf.argmax(predict)
 
 
-    def image_rescale(self, image):
+    def image_rescale(self, image, mode='RGB'):
         """
         convert image pixel size number to [-1, 1]
         :param image:
         :return:
         """
-        # [0, 255]=>[0, 1]
-        image = tf.divide(tf.cast(image, dtype=tf.float32), 255.)
-        # [0, 1] => [-0.5, 0.5]
-        image = tf.subtract(image, 0.5)
-        # [-0.5, 0.5] => [-1.0, 1.0]
-        image = tf.multiply(image, 2.0)
-
+        if mode == 'RGB':
+            # [0, 255]=>[0, 1]
+            image = tf.divide(tf.cast(image, dtype=tf.float32), 255.)
+            # [0, 1] => [-0.5, 0.5]
+            image = tf.subtract(image, 0.5)
+            # [-0.5, 0.5] => [-1.0, 1.0]
+            image = tf.multiply(image, 2.0)
+        else:
+            pass
         return image
 
     def fill_feed_dict(self, rgb_video_feed, flow_video_feed, label_feed, is_training=False):

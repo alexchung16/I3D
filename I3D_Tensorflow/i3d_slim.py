@@ -28,12 +28,11 @@ class I3D():
         if mode == 'RGB':
             self.input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, 224, 224, 3],
                                                        name="video")
+            # convert size scale to (-1, 1)
+            self.input_data = self.image_rescale(self.input_data)
         elif mode == 'Flow':
             self.input_data = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, 224, 224, 2],
                                                        name="video")
-        # convert size scale to (-1, 1)
-        # self.rgb_input_data = self.image_rescale(self.rgb_input_data)
-
 
         self.input_label = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, num_classes],
                                                     name="label")
@@ -156,20 +155,21 @@ class I3D():
 
         return tf.argmax(predict)
 
-
-    def image_rescale(self, image):
+    def image_rescale(self, image, mode='RGB'):
         """
         convert image pixel size number to [-1, 1]
         :param image:
         :return:
         """
-        # [0, 255]=>[0, 1]
-        image = tf.divide(tf.cast(image, dtype=tf.float32), 255.)
-        # [0, 1] => [-0.5, 0.5]
-        image = tf.subtract(image, 0.5)
-        # [-0.5, 0.5] => [-1.0, 1.0]
-        image = tf.multiply(image, 2.0)
-
+        if mode == 'RGB':
+            # [0, 255]=>[0, 1]
+            image = tf.divide(tf.cast(image, dtype=tf.float32), 255.)
+            # [0, 1] => [-0.5, 0.5]
+            image = tf.subtract(image, 0.5)
+            # [-0.5, 0.5] => [-1.0, 1.0]
+            image = tf.multiply(image, 2.0)
+        else:
+            pass
         return image
 
     def fill_feed_dict(self, video_feed, label_feed, is_training=False):
@@ -453,46 +453,46 @@ class InceptionI3d(snt.AbstractModule):
                      stride=(1, 1, 1),
                      name='Conv3d_2c_3x3')(net, is_training=is_training)
 
-        # net = tf.nn.max_pool3d(input=net, ksize=(1, 1, 3, 3, 1), strides=(1, 1, 8, 8, 1), padding=snt.SAME,
-        #                        name='MaxPool3d_3a_3x3')
-        # MaxPool3d_3a_3x3
-        net = tf.nn.max_pool3d(input=net, ksize=(1, 1, 3, 3, 1), strides=(1, 1, 2, 2, 1), padding=snt.SAME,
+        net = tf.nn.max_pool3d(input=net, ksize=(1, 1, 3, 3, 1), strides=(1, 1, 8, 8, 1), padding=snt.SAME,
                                name='MaxPool3d_3a_3x3')
-        # Mixed_3b
-        net = self.inception_module(inputs=net, output_list=[64, 96, 128, 16, 32, 32], name='Mixed_3b',
-                                    is_training=is_training)
-        # Mixed_3c
-        net = self.inception_module(inputs=net, output_list=[128, 128, 192, 32, 96, 64], name='Mixed_3c',
-                                    is_training=is_training)
-
-        # MaxPool3d_4a_3x3
-        net = tf.nn.max_pool3d(input=net, ksize=(1, 3, 3, 3, 1), strides=(1, 2, 2, 2, 1), padding=snt.SAME,
-                               name='MaxPool3d_4a_3x3')
-        # Mixed_4b
-        net = self.inception_module(inputs=net, output_list=[192, 96, 208, 16, 48, 64], name='Mixed_4b',
-                                    is_training=is_training)
-        # Mixed_4c
-        net = self.inception_module(inputs=net, output_list=[160, 112, 224, 24, 64, 64], name='Mixed_4c',
-                                    is_training=is_training)
-        # Mixed_4d
-        net = self.inception_module(inputs=net, output_list=[128, 128, 256, 24, 64, 64], name='Mixed_4d',
-                                    is_training=is_training)
-        # Mixed_4e
-        net = self.inception_module(inputs=net, output_list=[112, 144, 288, 32, 64, 64], name='Mixed_4e',
-                                    is_training=is_training)
-        # Mixed_4f
-        net = self.inception_module(inputs=net, output_list=[256, 160, 320, 32, 128, 128], name='Mixed_4f',
-                                    is_training=is_training)
-
-        # MaxPool3d_5a_3x3
-        net = tf.nn.max_pool3d(input=net, ksize=(1, 2, 2, 2, 1), strides=(1, 2, 2, 2, 1), padding=snt.SAME,
-                               name='MaxPool3d_5a_3x3')
-        # Mixed_5b
-        net = self.inception_module(inputs=net, output_list=[256, 160, 320, 32, 128, 128], name='Mixed_5b',
-                                    is_training=is_training)
-        # # Mixed_5c
-        net = self.inception_module(inputs=net, output_list=[384, 192, 384, 48, 128, 128], name='Mixed_5c',
-                                    is_training=is_training)
+        # MaxPool3d_3a_3x3
+        # net = tf.nn.max_pool3d(input=net, ksize=(1, 1, 3, 3, 1), strides=(1, 1, 2, 2, 1), padding=snt.SAME,
+        #                        name='MaxPool3d_3a_3x3')
+        # # Mixed_3b
+        # net = self.inception_module(inputs=net, output_list=[64, 96, 128, 16, 32, 32], name='Mixed_3b',
+        #                             is_training=is_training)
+        # # Mixed_3c
+        # net = self.inception_module(inputs=net, output_list=[128, 128, 192, 32, 96, 64], name='Mixed_3c',
+        #                             is_training=is_training)
+        #
+        # # MaxPool3d_4a_3x3
+        # net = tf.nn.max_pool3d(input=net, ksize=(1, 3, 3, 3, 1), strides=(1, 2, 2, 2, 1), padding=snt.SAME,
+        #                        name='MaxPool3d_4a_3x3')
+        # # Mixed_4b
+        # net = self.inception_module(inputs=net, output_list=[192, 96, 208, 16, 48, 64], name='Mixed_4b',
+        #                             is_training=is_training)
+        # # Mixed_4c
+        # net = self.inception_module(inputs=net, output_list=[160, 112, 224, 24, 64, 64], name='Mixed_4c',
+        #                             is_training=is_training)
+        # # Mixed_4d
+        # net = self.inception_module(inputs=net, output_list=[128, 128, 256, 24, 64, 64], name='Mixed_4d',
+        #                             is_training=is_training)
+        # # Mixed_4e
+        # net = self.inception_module(inputs=net, output_list=[112, 144, 288, 32, 64, 64], name='Mixed_4e',
+        #                             is_training=is_training)
+        # # Mixed_4f
+        # net = self.inception_module(inputs=net, output_list=[256, 160, 320, 32, 128, 128], name='Mixed_4f',
+        #                             is_training=is_training)
+        #
+        # # MaxPool3d_5a_3x3
+        # net = tf.nn.max_pool3d(input=net, ksize=(1, 2, 2, 2, 1), strides=(1, 2, 2, 2, 1), padding=snt.SAME,
+        #                        name='MaxPool3d_5a_3x3')
+        # # Mixed_5b
+        # net = self.inception_module(inputs=net, output_list=[256, 160, 320, 32, 128, 128], name='Mixed_5b',
+        #                             is_training=is_training)
+        # # # Mixed_5c
+        # net = self.inception_module(inputs=net, output_list=[384, 192, 384, 48, 128, 128], name='Mixed_5c',
+        #                             is_training=is_training)
 
         with tf.variable_scope('Logits'):
             net = tf.nn.avg_pool3d(net, ksize=(1, 2, 7, 7, 1), strides=(1, 1, 1, 1, 1), padding=snt.VALID,
